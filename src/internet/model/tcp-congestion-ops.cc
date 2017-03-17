@@ -67,12 +67,20 @@ TcpNewReno::GetTypeId (void)
 TcpNewReno::TcpNewReno (void) : TcpCongestionOps ()
 {
   NS_LOG_FUNCTION (this);
+  m_k = 10;
+  m_d = 1;
+  m_nAcked = 0;
+  m_ackThresh = m_k; 
 }
 
 TcpNewReno::TcpNewReno (const TcpNewReno& sock)
   : TcpCongestionOps (sock)
 {
   NS_LOG_FUNCTION (this);
+  m_k = 10;
+  m_d = 1;
+  m_nAcked = 0;
+  m_ackThresh = m_k;
 }
 
 TcpNewReno::~TcpNewReno (void)
@@ -121,9 +129,12 @@ u32 tcp_slow_start(struct tcp_sock *tp, u32 acked)
  * \param segmentsAcked count of segments acked
  * \return the number of segments not considered for increasing the cWnd
  */
+
+/*
 uint32_t
 TcpNewReno::SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 {
+
   NS_LOG_FUNCTION (this << tcb << segmentsAcked);
 
   if (segmentsAcked >= 1)
@@ -135,6 +146,44 @@ TcpNewReno::SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 
   return 0;
 }
+*/
+
+uint32_t
+TcpNewReno::SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
+{
+  NS_LOG_FUNCTION (this << tcb << segmentsAcked);
+  m_smsThresh = tcb->m_ssThresh / pow(2,m_d);  
+       
+  NS_LOG_INFO ("smsThresh: "<< m_smsThresh << " ssThresh: " << tcb->m_ssThresh << "nAcked: " << m_nAcked << "Ackthresh: "<<m_ackThresh<< " cwnd: "<< tcb->m_cWnd) ;
+  
+  if (segmentsAcked >= 1)
+    {
+    
+      if (tcb->m_cWnd <= m_smsThresh)
+        {
+        NS_LOG_INFO("++ Slow Start ++");
+        tcb->m_cWnd += tcb->m_segmentSize;
+        NS_LOG_INFO ("In SlowStart, updated to cwnd " << tcb->m_cWnd << " ssthresh " << tcb->m_ssThresh);
+        return segmentsAcked - 1;
+        }
+        
+    m_nAcked += 1;
+    
+    if (m_nAcked == m_ackThresh)
+        {
+        NS_LOG_INFO("++ Smooth Start increasing cwnd++");
+        tcb->m_cWnd += tcb->m_segmentSize;
+        NS_LOG_INFO ("In SmoothStart, updated to cwnd " << tcb->m_cWnd << " ssthresh " << tcb->m_ssThresh);
+        m_ackThresh = m_ackThresh + 1;
+        m_nAcked = 0;
+        return segmentsAcked - 1;
+        }
+    else NS_LOG_INFO("++ Smooth Start not cwnd++ m_nAcked!=m_ackThresh"<< m_nAcked <<" " <<m_ackThresh);
+    return segmentsAcked - 1;    
+    }
+  return 0;
+}
+
 
 /**
  * \brief NewReno congestion avoidance
@@ -216,4 +265,3 @@ TcpNewReno::Fork ()
 }
 
 } // namespace ns3
-
