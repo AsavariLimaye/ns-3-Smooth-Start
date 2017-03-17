@@ -164,6 +164,12 @@ public:
  */
 class TcpNewReno : public TcpCongestionOps
 {
+uint32_t m_smsThresh;
+uint32_t m_k;
+uint32_t m_d;
+uint32_t m_nAcked;
+uint32_t m_ackThresh;
+
 public:
   /**
    * \brief Get the type ID.
