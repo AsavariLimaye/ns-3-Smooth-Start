@@ -164,11 +164,7 @@ public:
  */
 class TcpNewReno : public TcpCongestionOps
 {
-uint32_t m_smsThresh;
-uint32_t m_k;
-uint32_t m_d;
 uint32_t m_nAcked;
-uint32_t m_ackThresh;
 
 public:
   /**
@@ -197,6 +193,7 @@ public:
 
 protected:
   virtual uint32_t SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
+  virtual uint32_t SmoothStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
   virtual void CongestionAvoidance (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
 };
 
