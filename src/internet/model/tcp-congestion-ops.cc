@@ -67,20 +67,14 @@ TcpNewReno::GetTypeId (void)
 TcpNewReno::TcpNewReno (void) : TcpCongestionOps ()
 {
   NS_LOG_FUNCTION (this);
-  m_k = 10;
-  m_d = 1;
   m_nAcked = 0;
-  m_ackThresh = m_k; 
 }
 
 TcpNewReno::TcpNewReno (const TcpNewReno& sock)
   : TcpCongestionOps (sock)
 {
   NS_LOG_FUNCTION (this);
-  m_k = 10;
-  m_d = 1;
   m_nAcked = 0;
-  m_ackThresh = m_k;
 }
 
 TcpNewReno::~TcpNewReno (void)
@@ -130,13 +124,13 @@ u32 tcp_slow_start(struct tcp_sock *tp, u32 acked)
  * \return the number of segments not considered for increasing the cWnd
  */
 
-/*
+
 uint32_t
 TcpNewReno::SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 {
 
   NS_LOG_FUNCTION (this << tcb << segmentsAcked);
-
+   //tcb->m_ssThresh = 8000;
   if (segmentsAcked >= 1)
     {
       tcb->m_cWnd += tcb->m_segmentSize;
@@ -146,20 +140,21 @@ TcpNewReno::SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 
   return 0;
 }
-*/
+
 
 uint32_t
-TcpNewReno::SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
+TcpNewReno::SmoothStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 {
   NS_LOG_FUNCTION (this << tcb << segmentsAcked);
-  m_smsThresh = tcb->m_ssThresh / pow(2,m_d);  
+  //tcb->m_ssThresh = 8000;
+  tcb->m_smsThresh = tcb->m_ssThresh / pow(2,tcb->m_depth);  
        
-  NS_LOG_INFO ("smsThresh: "<< m_smsThresh << " ssThresh: " << tcb->m_ssThresh << "nAcked: " << m_nAcked << "Ackthresh: "<<m_ackThresh<< " cwnd: "<< tcb->m_cWnd) ;
+  NS_LOG_INFO ("smsThresh: "<< tcb->m_smsThresh << " ssThresh: " << tcb->m_ssThresh << "nAcked: " << m_nAcked << "Ackthresh: "<<tcb->m_ackThresh<< " cwnd: "<< tcb->m_cWnd) ;
   
   if (segmentsAcked >= 1)
     {
     
-      if (tcb->m_cWnd <= m_smsThresh)
+      if (tcb->m_cWnd <= tcb->m_smsThresh)
         {
         NS_LOG_INFO("++ Slow Start ++");
         tcb->m_cWnd += tcb->m_segmentSize;
@@ -169,20 +164,21 @@ TcpNewReno::SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
         
     m_nAcked += 1;
     
-    if (m_nAcked == m_ackThresh)
+    if (m_nAcked == tcb->m_ackThresh)
         {
         NS_LOG_INFO("++ Smooth Start increasing cwnd++");
         tcb->m_cWnd += tcb->m_segmentSize;
         NS_LOG_INFO ("In SmoothStart, updated to cwnd " << tcb->m_cWnd << " ssthresh " << tcb->m_ssThresh);
-        m_ackThresh = m_ackThresh + 1;
+        tcb->m_ackThresh = tcb->m_ackThresh + 1;
         m_nAcked = 0;
         return segmentsAcked - 1;
         }
-    else NS_LOG_INFO("++ Smooth Start not cwnd++ m_nAcked!=m_ackThresh"<< m_nAcked <<" " <<m_ackThresh);
+    else NS_LOG_INFO("++ Smooth Start not cwnd++ m_nAcked!=m_ackThresh"<< m_nAcked <<" " <<tcb->m_ackThresh);
     return segmentsAcked - 1;    
     }
   return 0;
 }
+
 
 
 /**
@@ -225,7 +221,16 @@ TcpNewReno::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 
   if (tcb->m_cWnd < tcb->m_ssThresh)
     {
-      segmentsAcked = SlowStart (tcb, segmentsAcked);
+    if(tcb->m_isSmoothStart)
+      {
+         NS_LOG_INFO ("Doing SmoothStart") ;
+        segmentsAcked = SmoothStart (tcb, segmentsAcked);
+      }
+    else
+      {
+        NS_LOG_INFO ("Doing SlowStart") ;
+        segmentsAcked = SlowStart (tcb, segmentsAcked);
+      }
     }
 
   if (tcb->m_cWnd >= tcb->m_ssThresh)
