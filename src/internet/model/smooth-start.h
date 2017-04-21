@@ -24,6 +24,7 @@ class SmoothStart : public TcpNewReno
   TracedValue<uint32_t> m_smsThresh;        //!< Smooth Start threshold
   uint32_t              m_firstFlag;        //!< Set to zero when CongestionAvoidance starts 
   uint32_t              m_nAcked;           //!< Number of acknowldgements recieved since last increase of cwnd
+  uint32_t 		m_nextThresh;       //!< Indicates end of RTT
 
 protected:
   virtual uint32_t SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
