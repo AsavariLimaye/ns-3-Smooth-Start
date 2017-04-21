@@ -51,7 +51,7 @@ SmoothStart::GetTypeId (void)
     .AddConstructor<SmoothStart> ()
     .AddAttribute ("GrainNumber",
                    "Grain number used for Smooth Start",
-                   UintegerValue (2),
+                   UintegerValue (4),
                    MakeUintegerAccessor (&SmoothStart::m_grainNumber),
                    MakeUintegerChecker<uint16_t> ()
                    )
@@ -74,6 +74,7 @@ SmoothStart::SmoothStart (void) : TcpNewReno ()
   m_ackThresh = 0;
   m_smsThresh = 0;
   m_firstFlag = 0;
+  m_nextThresh = 0;
  }
 
 SmoothStart::SmoothStart (const SmoothStart& other)
@@ -86,6 +87,7 @@ SmoothStart::SmoothStart (const SmoothStart& other)
   m_ackThresh = other.m_ackThresh;
   m_smsThresh  = other.m_smsThresh;
   m_firstFlag = other.m_firstFlag;
+  m_nextThresh = other.m_nextThresh;
 }
 
 SmoothStart::~SmoothStart (void)
@@ -108,17 +110,24 @@ SmoothStart::SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
         NS_LOG_INFO("++ Slow Start ++");
         tcb->m_cWnd += tcb->m_segmentSize;
         NS_LOG_INFO ("In SlowStart, updated to cwnd " << tcb->m_cWnd << " ssthresh " << tcb->m_ssThresh);
+        m_nextThresh = m_smsThresh + m_smsThresh/m_grainNumber;
         return segmentsAcked - 1;
         }
         
     m_nAcked += 1;
-    
-    if (m_nAcked == m_ackThresh)
+    NS_LOG_INFO("In SmoothStart nextThresh"<< m_nextThresh);
+    if (tcb->m_cWnd >= m_nextThresh)
+        {
+        NS_LOG_INFO("In SmoothStart updating nextThresh from "<< m_nextThresh <<" to " << m_nextThresh + m_nextThresh/(m_ackThresh+1)  );
+        m_nAcked = 1;
+        m_ackThresh += 1;
+        m_nextThresh = m_nextThresh + m_nextThresh/m_ackThresh;
+        }
+    else if (m_nAcked == m_ackThresh)
         {
         NS_LOG_INFO("++ Smooth Start increasing cwnd++");
         tcb->m_cWnd += tcb->m_segmentSize;
         NS_LOG_INFO ("In SmoothStart, updated to cwnd " << tcb->m_cWnd << " ssthresh " << tcb->m_ssThresh);
-        m_ackThresh = m_ackThresh + 1;
         m_nAcked = 0;
         return segmentsAcked - 1;
         }
@@ -140,6 +149,8 @@ SmoothStart::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
         if (m_firstFlag == 0)
                 {
                   m_firstFlag = 1 ;
+                  m_smsThresh = tcb->m_ssThresh / pow(2,m_depth);  
+                  m_nextThresh = m_smsThresh + m_smsThresh/m_grainNumber;
                   m_ackThresh = m_grainNumber ;           
                 }
         segmentsAcked = SlowStart (tcb, segmentsAcked);
@@ -151,7 +162,15 @@ SmoothStart::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
       NS_LOG_INFO("SmoothStart: Calling Congestion Avoidance");
       CongestionAvoidance (tcb, segmentsAcked);
     }
+
+  /* At this point, we could have segmentsAcked != 0. This because RFC says
+   * that in slow start, we should increase cWnd by min (N, SMSS); if in
+   * slow start we receive a cumulative ACK, it counts only for 1 SMSS of
+   * increase, wasting the others.
+   *
+   * // Uncorrect assert, I am sorry
+   * NS_ASSERT (segmentsAcked == 0);
+   */
 }
 
 } // namespace ns3
-
