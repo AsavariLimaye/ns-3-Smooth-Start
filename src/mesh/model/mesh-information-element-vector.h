@@ -23,7 +23,6 @@
 #define MESH_INFORMATION_ELEMENT_VECTOR_H
 
 #include "ns3/wifi-information-element-vector.h"
-#include "ns3/wifi-information-element.h"
 
 namespace ns3 {
 
@@ -35,6 +34,10 @@ public:
   MeshInformationElementVector ();
   ~MeshInformationElementVector ();
 
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
   static TypeId GetTypeId ();
   TypeId GetInstanceTypeId () const;
   virtual uint32_t DeserializeSingleIe (Buffer::Iterator start);
